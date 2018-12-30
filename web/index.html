@@ -1,0 +1,358 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+        <script src='https://www.google.com/recaptcha/api.js'></script>
+    </head>
+
+    <body>
+        <div id="app">
+
+        </div>
+        <div class="container" id="captcha">
+            <div class="g-recaptcha" data-sitekey="6LciFH8UAAAAAJXxAImGgDkoDYnVra8n8b-fAtbK"></div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+        
+        <script src="https://unpkg.com/react@16/umd/react.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+        <script type="text/babel">
+
+            //props:
+            //    list_items: Array<JSONObject(name: String, content: String)>
+            //    item_callback: Function => String
+            class AddQuestion extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.handleItemChosen = this.handleItemChosen.bind(this);
+                }
+
+                handleItemChosen(e) {
+                    this.props.item_callback(e.target.name);
+                }
+
+                render() {
+                    const dropdown_items = this.props.list_items.map((item) => {
+                        return <a class="dropdown-item" name={item.name} href="#" onClick={this.handleItemChosen}>{item.content}</a>
+                    });
+
+                    return (
+                        <div class="dropdown">
+                                <button class="btn btn-primary dropdown-toggle btn-block" data-toggle="dropdown">Add Question</button>
+
+                                <div class="dropdown-menu btn-block">
+                                    {dropdown_items}
+                                </div>
+                        </div>
+                    );
+                }
+            }
+
+            //props:
+            //    idx: Int ... question number
+            //    update_callback: Function(idx, JSONObject) ... lift up the state
+            class MultipleChoice extends React.Component {
+                constructor(props) {
+                    super(props);
+
+                    this.state = {
+                        question: "",
+                        options: [],
+                        required: false,
+                    };
+
+                    this.handleAddOption = this.handleAddOption.bind(this);
+                    this.handleQuestionChange = this.handleQuestionChange.bind(this);
+                    this.handleOptionChange = this.handleOptionChange.bind(this);
+                    this.handleOptionDelete = this.handleOptionDelete.bind(this);
+                    this.updateCallback = this.updateCallback.bind(this);
+                    this.handleRequired = this.handleRequired.bind(this);
+                }
+
+                updateCallback() {
+                    this.props.update_callback(this.props.idx, this.state);
+                }
+
+                handleQuestionChange(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy["question"] = e.target.value;
+
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                handleAddOption(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.options = state_copy.options.concat("");
+                    this.setState(state_copy, this.updateCallback);              
+                }
+
+                handleOptionChange(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.options[e.target.getAttribute("idx")] = e.target.value;
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                handleOptionDelete(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.options.splice(e.target.getAttribute("idx"), 1);
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                handleRequired(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.required = e.target.checked;
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                render() {
+                    var options = this.state.options.map((v, idx) => {
+                        return (
+                            <div class="row">
+                                <label class="col-1">Option {idx + 1}: </label>
+                                <input class="form-control col-9" type="text" idx={idx} value={this.state.options[idx]} onChange={this.handleOptionChange}/>
+                                <button class="btn btn-danger col-2" idx={idx} onClick={this.handleOptionDelete} tabindex="-1">Delete</button>
+                            </div>
+                        );
+                    });
+
+                    return (
+                        <div class="container question">
+                            <div class="row">
+                                <label class="col-1"><b>Question {this.props.idx + 1}: </b></label>
+                                <label class="form-check-label col-1">
+                                        <input type="checkbox" class="form-check-input" value="" onClick={this.handleRequired} />Required?
+                                </label>
+                                <input class="form-control col-8" type="text" onChange={this.handleQuestionChange} value={this.state.question} />
+                                <button class="btn btn-light col-2" onClick={this.handleAddOption} tabindex="-1">Add Option</button>
+                            </div>
+                            {options}
+                        </div>
+                    );
+                }
+            }
+
+            //props:
+            //    idx: Int ... question number
+            //    update_callback: Function(idx, JSONObject) ... lift up the state
+            class FreeResponse extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.state = {
+                        question: "",
+                        required: false,
+                    };
+
+                    this.handleQuestionChange = this.handleQuestionChange.bind(this);
+                    this.updateCallback = this.updateCallback.bind(this);
+                    this.handleRequired = this.handleRequired.bind(this);
+                }
+
+                updateCallback() {
+                    this.props.update_callback(this.props.idx, this.state);
+                }
+
+                handleQuestionChange(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy["question"] = e.target.value;
+
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                handleRequired(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.required = e.target.checked;
+                    this.setState(state_copy, this.updateCallback);
+                }
+
+                render() {
+                    return (
+                        <div class="container question">
+                            <div class="row">
+                                <label class="col-1"><b>Question {this.props.idx + 1}: </b></label>
+                                <label class="form-check-label col-1">
+                                        <input type="checkbox" class="form-check-input" value="" onClick={this.handleRequired} />Required?
+                                </label>
+                                <input class="form-control col-10" type="text" onChange={this.handleQuestionChange} value={this.state.question} />
+                            </div>
+                        </div>
+                    );
+                }
+            }
+
+            class SuccessPage extends React.Component {
+                render() {
+                    var url = window.location.href;
+
+                    var share_link = new URL(url);
+                    share_link.pathname = "/" + this.props.form_id;
+
+                    var results_link = new URL(url);
+                    results_link.pathname = "/" + this.props.form_id + "/results"
+                    if (this.props.result_private) {
+                        results_link.search = "?password=" + this.props.password;
+                    }
+
+                    var download_link = new URL(url);
+                    download_link.pathname = "/" + this.props.form_id + "/download";
+                    download_link.search = "?password=" + this.props.password;
+                    
+                    return (
+                        <div class="container">
+                            <div class="row">
+                                <h3>Thanks for your submission!</h3>
+                            </div>
+                            <div class="row">
+                                <p>Shareable link to your form: <a target="_blank" href={share_link.href.replace("#", "")}>{share_link.href.replace("#", "")}</a></p>
+                            </div>
+                            <div class="row">
+                                <p>Link to results page: <a target="_blank" href={results_link.href.replace("#", "")}>{results_link.href.replace("#", "")}</a></p>
+                            </div>
+                            <div class="row">
+                                <p>Download link to results: <a target="_blank" href={download_link.href.replace("#", "")}>{download_link.href.replace("#", "")}</a></p>
+                            </div>
+                        </div>
+                    );
+                }
+            }
+
+            class App extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.state = {
+                        questions: [],
+                        result_private: false,
+                        submit_message: "",
+                        submit_success: false,
+                    };
+
+                    this.handleQuestionItemChosen = this.handleQuestionItemChosen.bind(this);
+                    this.handleQuestionUpdate = this.handleQuestionUpdate.bind(this);
+                    this.handleSubmitForm = this.handleSubmitForm.bind(this);
+                }
+
+                //Callback for when item is chosen
+                handleQuestionItemChosen(item_type) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.questions = state_copy.questions.concat(
+                        {
+                            question_type: item_type,
+                            data: {},
+                        }
+                    );
+
+                    this.setState(state_copy);
+                }
+
+                //Update the state of the question after state of the question updates
+                handleQuestionUpdate(idx, state) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.questions[idx].data = state;
+
+                    this.setState(state_copy);
+                }
+
+                handleSubmitForm() {
+                    var captcha = grecaptcha.getResponse();
+
+                    var self = this;
+                    var xhr = new XMLHttpRequest();
+                    xhr.onreadystatechange = function () {
+                        if (this.readyState == 4 && this.status == 200) {
+                            var response = JSON.parse(this.responseText);
+                            var state_copy = Object.assign({}, self.state);
+                            if (response.success) {
+                                state_copy.submit_message = response.message;
+                                state_copy.submit_success = true;
+
+                                document.getElementById("captcha").style.visibility = "hidden"; 
+                            } else {
+                                //Error has occurred ... render error message
+                                state_copy.submit_message = response.message;
+                                state_copy.submit_success = false;
+                            }
+                            self.setState(state_copy);
+                        }
+                    };
+                    xhr.open("POST", "api/submit", true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify(
+                        {
+                            questions: this.state.questions,
+                            result_private: this.state.result_private,
+                            captcha: captcha,
+                        }
+                    ));
+
+                    grecaptcha.reset();
+                }
+
+                render() {
+                    const dropdown_item = [
+                        {name: "frq", content: "Free Response"}, 
+                        {name: "mc", content: "Multiple Choice"}
+                    ];
+                    
+                    var questions = this.state.questions.map((v, idx) => {
+                        if (v.question_type == "frq") {
+                            return (
+                                <div>
+                                    <FreeResponse idx={idx} update_callback={this.handleQuestionUpdate} />
+                                </div>
+                            );
+                        }
+                        if (v.question_type == "mc") {
+                            return (
+                                <div>
+                                    <MultipleChoice idx={idx} update_callback={this.handleQuestionUpdate} />
+                                </div>
+                            );
+                        }
+                    });
+
+                    //Render the success page instead of the form page if submission was sent
+                    if (this.state.submit_success) {
+                        return (
+                            <SuccessPage result_private={this.state.submit_message.result_private} 
+                                            password={this.state.submit_message.password} 
+                                            form_id={this.state.submit_message.form_id} />
+                        );
+                    }
+
+                    return (
+                        <div>
+                            <div class={`alert 
+                                        text-center 
+                                        ${(this.state.submit_message == "") ? "collapse" : ""} 
+                                        ${(this.state.submit_success) ? "alert-success" : "alert-danger"}`
+                                        }>
+                                <strong>{this.state.submit_message}</strong>
+                            </div>
+                            {questions}
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <AddQuestion list_items={dropdown_item} item_callback={this.handleQuestionItemChosen} />
+                                    </div>
+                                    <button class="btn btn-success col-6" onClick={this.handleSubmitForm}>Create Form</button>
+                                </div>
+                                <div class="row">
+                                    <label class="form-check-label">
+                                        <input type="checkbox" class="form-check-input" value="" onClick={(e) => {
+                                            this.state["result_private"] = e.target.checked
+                                        }} />Make Results Private
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+            }
+            
+            ReactDOM.render(<App />, document.getElementById("app"));
+        </script>
+    </body>
+</html>

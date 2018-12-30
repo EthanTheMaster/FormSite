@@ -1,0 +1,115 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    </head>
+
+    <body>
+        <div id="app">
+
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+        
+        <script src="https://unpkg.com/react@16/umd/react.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.js"></script>
+
+        <script type="text/babel">
+            class ChartMc extends React.Component {
+                constructor(props) {
+                    super(props);
+
+                    this.chartRef = React.createRef();
+                }
+
+                componentDidMount() {
+                    var myChart = new Chart(this.chartRef.current, {
+                        type: 'bar',
+                        data: {
+                            labels: this.props.labels,
+                            datasets: [{
+                                label: this.props.question,
+                                data: this.props.data,
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                yAxes: [{
+                                    ticks: {
+                                        beginAtZero:true,
+                                        stepSize:1
+                                    }
+                                }]
+                            }
+                        }
+                    });
+                }
+
+                render() {
+                    return (
+                        <div class="col-12 col-lg-6">
+                            <canvas id="myChart" width="400" height="400" ref={this.chartRef}></canvas>
+                        </div>
+                    );
+
+                }
+            }
+
+            class App extends React.Component {
+                constructor(props) {
+                    super(props);
+
+                    var id = window.location.pathname.split("/")[1];
+                    var get_params = window.location.href.split("?")[1]
+                    get_params = (get_params == null) ? "" : get_params;
+
+                    var data = {};
+
+                    //Get form data from api
+                    $.ajax({
+                        url: "/api/getresults/" + id + "?" + get_params,
+                        success: (response) => {
+                            if (response.success) {
+                                data = response.message
+                            } else {
+                                window.location.href = "/";
+                            }
+                        },
+                        async: false,
+                        timeout: 20000
+                    });
+
+                    this.state = {
+                        chart_data: data,
+                    }
+                }
+
+                render() {
+                    var mc_charts = [];
+                    for (var i = 0; i < this.state.chart_data.mc_labels.length; i++) {
+                        var question = this.state.chart_data.mc_questions[i]
+                        var labels = this.state.chart_data.mc_labels[i];
+                        var data = this.state.chart_data.mc_results[i]
+                        mc_charts.push(
+                            <ChartMc question={question} labels={labels} data={data}/>
+                        );               
+                    }
+                    return (
+                        <div class="container">
+                            <div class="row">
+                            {mc_charts}
+                            <div class="w-100"></div>
+                            </div>
+                        </div>
+                    );
+                }
+            }
+            
+            ReactDOM.render(<App />, document.getElementById("app"));
+        </script>
+    </body>
+</html>

@@ -1,0 +1,277 @@
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+        <script src='https://www.google.com/recaptcha/api.js'></script>
+    </head>
+
+    <body>
+        <div id="app">
+            
+        </div>
+        <div class="container">
+                <div class="g-recaptcha" data-sitekey="6LciFH8UAAAAAJXxAImGgDkoDYnVra8n8b-fAtbK"></div>
+        </div>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+        
+        <script src="https://unpkg.com/react@16/umd/react.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+        <script type="text/babel">
+            class SurveyFreeResponse extends React.Component {
+                constructor(props) {
+                    super(props);
+                    var question = props.data.question;
+                    var required = props.data.required;
+                    var response = (props.response == null) ? "" : props.response;
+                    this.state = {
+                        question: question,
+                        required: required,
+                        response: response,
+                    }
+
+                    this.handleReponseChange = this.handleReponseChange.bind(this);
+
+                    //Update w/ default empty reponse
+                    this.props.updateCallback({response: this.state.response});
+                }
+
+                handleReponseChange(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.response = e.target.value;
+                    this.setState(state_copy, () => {
+                        this.props.updateCallback({response: this.state.response});
+                    });
+                }
+
+                render() {
+                    return (
+                        <div class="container">
+                            <div class="row">
+                                <h4>{this.state.question}{(this.state.required) ? "(Required)" : ""}</h4>
+                            </div>
+                            <textarea class="form-control" onChange={this.handleReponseChange}>{this.state.response}</textarea>
+                        </div>
+                    );
+                }
+            }
+
+            class SurveyMultipleChoice extends React.Component {
+                constructor(props) {
+                    super(props);
+                    var options = props.data.options;
+                    var question = props.data.question;
+                    var required = props.data.required;
+                    var selected = (props.selected == null) ? -1 : props.selected;                    
+                    this.state = {
+                        options: options,
+                        question: question,
+                        required: required,
+                        selected: selected,
+                    }
+
+                    this.handleOptionSelected = this.handleOptionSelected.bind(this);
+
+                    //Update w/ default empty reponse
+                    this.props.updateCallback({selected: parseInt(this.state.selected)})
+                }
+
+                handleOptionSelected(e) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.selected = e.target.getAttribute("idx");
+
+                    this.setState(state_copy, () => {
+                        this.props.updateCallback({selected: parseInt(this.state.selected)})
+                    });
+                }
+
+                render() {
+                    var options = this.state.options.map((v, idx) => {
+                        return (
+                            <div class="row">
+                                <button class="btn btn-secondary col-6" idx={idx} disabled={idx == this.state.selected} onClick={this.handleOptionSelected}>
+                                    {v}
+                                </button>
+                            </div>
+                        );
+                    });
+                    return (
+                        <div class="container">
+                            <div class="row">
+                                <h4>{this.state.question}{(this.state.required) ? "(Required)" : ""}</h4>
+                            </div>
+                            {options}
+                        </div>
+                    );
+                }
+            }
+
+            class App extends React.Component {
+                constructor(props) {
+                    super(props);
+                    var id = window.location.pathname.split("/")[1];
+                    var data = {};
+
+                    //Get form data from api
+                    $.ajax({
+                        url: "/api/getform/" + id,
+                        success: (response) => {
+                            if (response.success) {
+                                data = response.message
+                            } else {
+                                window.location.href = "/";
+                            }
+                        },
+                        async: false,
+                        timeout: 20000
+                    });
+
+                    //Load in user submission if submitted before
+                    console.log(id);
+                    var user_submission = new Array(data.questions.length);
+                    $.ajax({
+                        url: "/api/getsurvey/" + id,
+                        success: (response) => {
+                            if (response.success) {
+                                user_submission = response.message
+                            }
+                        },
+                        async: false,
+                        timeout: 20000
+                    });
+                    this.state = {
+                        form_id: id,
+                        form_data: data,
+                        current_question: 0,
+                        user_submission: user_submission,
+                        submit_message: "",
+                        submit_success: false,
+                    };
+                    this.handleQuestionChange = this.handleQuestionChange.bind(this);
+                    this.updateUserSubmissionCallback = this.updateUserSubmissionCallback.bind(this);
+                    this.handleFormSubmit = this.handleFormSubmit.bind(this);
+                }
+
+                updateUserSubmissionCallback(response_data) {
+                    var state_copy = Object.assign({}, this.state);
+                    state_copy.user_submission[this.state.current_question] = response_data;
+                    this.setState(state_copy);
+                }
+
+                handleQuestionChange(question_idx) {
+                    if (question_idx >= 0 && question_idx < this.state.form_data.questions.length) {
+                        var state_copy = Object.assign({}, this.state);
+                        state_copy.current_question = question_idx;
+                        this.setState(state_copy);
+                    }
+                }
+
+                handleFormSubmit(e) {
+                    var self = this;
+
+                    var captcha = grecaptcha.getResponse();
+                    var xhr = new XMLHttpRequest();
+                    xhr.onreadystatechange = function () {
+                        if (this.readyState == 4 && this.status == 200) {
+
+                            var response = JSON.parse(this.responseText);
+                            var state_copy = Object.assign({}, self.state);
+                            if (response.success) {
+                                state_copy.submit_message = "Thanks for your submission!";
+                                state_copy.submit_success = true;
+                            } else {
+                                //Error has occurred ... render error message
+                                state_copy.submit_message = response.message;
+                                state_copy.submit_success = false;
+                            }
+                            self.setState(state_copy);
+                        }
+                    };
+                    xhr.open("POST", "/api/submitsurvey", true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify(
+                        {
+                            form_id: this.state.form_id,
+                            captcha: captcha,
+                            user_submission: this.state.user_submission,
+                        }
+                    ));
+                    grecaptcha.reset();
+                }
+
+                render() {
+                    //Render the current question
+                    var question = <p></p>;
+                    var current_question = this.state.form_data.questions[this.state.current_question];
+                    if (current_question.question_type == "mc") {
+                        var selected_option = this.state.user_submission[this.state.current_question];
+                        question = <SurveyMultipleChoice 
+                                        data = {current_question.data} 
+                                        updateCallback = {this.updateUserSubmissionCallback}
+                                        selected = {(selected_option == null) ? null : selected_option.selected}/>;
+                    }
+                    if (current_question.question_type == "frq") {
+                        var frq_response = this.state.user_submission[this.state.current_question];
+                        question = <SurveyFreeResponse 
+                                        data = {current_question.data} 
+                                        updateCallback = {this.updateUserSubmissionCallback}
+                                        response = {(frq_response == null) ? null : frq_response.response}/>;
+                    }
+                    //Should the submit button be disabled right now?
+                    var isSubmitDisabled = false;
+                    for (var i = 0; i < this.state.user_submission.length; i++) {
+                        if (this.state.user_submission[i] == null) {
+                            isSubmitDisabled = true;
+                            break;
+                        }
+                    }
+
+                    var results_link = new URL(window.location.href);
+                    results_link.pathname = "/" + this.state.form_id + "/results"
+                    return (
+                        <div>
+                            <div class={`alert 
+                                        text-center 
+                                        ${(this.state.submit_message == "") ? "collapse" : ""} 
+                                        ${(this.state.submit_success) ? "alert-success" : "alert-danger"}`
+                                        }>
+                                <strong>{this.state.submit_message}</strong>
+                            </div>
+                            <div class="container">
+                                <h2 class="text-center">Question {this.state.current_question + 1} / {this.state.form_data.questions.length}</h2>
+
+                                <div class="row" key={this.state.current_question}>
+                                    {question}
+                                </div>
+
+                                <div class="row">
+                                    <button class="btn btn-dark col-4" onClick={(e) => {this.handleQuestionChange(this.state.current_question - 1)}}>
+                                        Previous
+                                    </button>
+                                    <div class="col-4"></div>
+                                    <button class="btn btn-dark col-4" onClick={(e) => {this.handleQuestionChange(this.state.current_question + 1)}}>
+                                        Next
+                                    </button>
+                                </div>
+                                <div class="row">
+                                    <button class="btn btn-success col-12" 
+                                        onClick={this.handleFormSubmit}
+                                        disabled={isSubmitDisabled}>
+                                        Submit
+                                    </button>
+                                </div>
+                                <strong>{(this.state.form_data.result_private) ? "" : <a href={results_link.href}>Click here to see the results!</a>}</strong>                            
+
+                            </div>
+                        </div>
+                    );
+                }
+            }
+
+            ReactDOM.render(<App />, document.getElementById("app"));
+        </script>
+    </body>
+</html>
